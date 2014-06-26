@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import os
-from flask import Flask, abort, request, jsonify, g, url_for
+from flask import Flask, render_template, abort, request, jsonify, g, url_for
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.httpauth import HTTPBasicAuth
 from passlib.apps import custom_app_context as pwd_context
 from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
+from login import LoginForm
 
 # initialization
 app = Flask(__name__)
@@ -96,7 +97,16 @@ def get_auth_token():
 def get_resource():
     return jsonify({'data': 'Hello, %s!' % g.user.username})
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if request.method == 'POST':
+        return 'Form posted.'
+
+    elif request.method == 'GET':
+        return render_template('login.html', form=form)
+
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
         db.create_all()
-    app.run(debug=True)
+    app.run(host='0.0.0.0')
