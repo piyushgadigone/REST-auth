@@ -101,7 +101,11 @@ def get_resource():
 def login():
     form = LoginForm()
     if request.method == 'POST':
-        return 'Form posted.'
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.verify_password(form.password.data):
+            return 'Login Successful!'
+        else:
+            return 'Login Failed!'
 
     elif request.method == 'GET':
         return render_template('login.html', form=form)
