@@ -1,20 +1,29 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Easy Auth</title>    
+    <title>Easy Auth</title> 
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
+    {% block stylesheet  %}
+    {% endblock  %}
   </head>
   <body>
-   
-    <header>
-      <div class="container">
-        <h1 class="logo">Easy Auth</h1>
-      </div>
-    </header> 
+    <!-- Macro to add class to a form-->
+    {% macro render_field(field) %}
+      {{ field(**kwargs)|safe }}
+      {% if field.errors %}
+        <ul class=errors>
+        {% for error in field.errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+      
+    {% endmacro %}
      
     <div class="container">
       {% block content %}
       {% endblock %}
     </div>
-     
   </body>
 </html>

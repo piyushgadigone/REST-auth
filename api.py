@@ -97,18 +97,18 @@ def get_auth_token():
 def get_resource():
     return jsonify({'data': 'Hello, %s!' % g.user.username})
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.verify_password(form.password.data):
-            return 'Login Successful!'
+            return "Welcome"
         else:
-            return 'Login Failed!'
+            return render_template('login.html', form=form, success=False)
 
     elif request.method == 'GET':
-        return render_template('login.html', form=form)
+        return render_template('login.html', form=form, success=True)
 
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
