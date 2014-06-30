@@ -8,12 +8,16 @@ from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
 from login import LoginForm
 from register import RegisterForm
+import requests
+import json
 
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
+app.config['GCM_API_KEY'] = 'AIzaSyAKfEWRUwVosMDls-vGkjxL_43qRMCKfEE';
+app.config['GCM_URL'] = 'https://android.googleapis.com/gcm/send';
 
 # extensions
 db = SQLAlchemy(app)
@@ -110,7 +114,14 @@ def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.verify_password(form.password.data):
-            return "Welcome"
+            registration = Registration.query.filter_by(username=form.username.data).first()
+            if not registration:
+                return 'Device is not registered'
+            else:
+                headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
+                data = {'registration_ids':['%s' % registration.registration_id]}
+                r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
+                return r.text
         else:
             return render_template('login.html', form=form, success=False)
 
