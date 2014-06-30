@@ -140,6 +140,22 @@ def register():
     elif request.method == 'GET':
         return render_template('register.html', form=form, success=True, message='')
 
+@app.route('/registrationId', methods=['POST'])
+def registrationId():
+    username = request.json.get('username')
+    registrationId = request.json.get('registrationId')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'result': 'User does not exist'})
+    elif (not registrationId or len(registrationId) < 1):
+        return jsonify({'result': 'Invalid registration id'})
+    else:
+        registration = Registration(registration_id=registrationId)
+        registration.username = username
+        db.session.add(registration)
+        db.session.commit()
+        return jsonify({'result': 'Registration id successfully added'})
+
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
         db.create_all()
