@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+
+{% block content %}
+<div class="login_div">
+  <h2 class ="form-signin">Easy Auth</h2>
+  <form action="{{ url_for('register') }}" method=post class="form-signin">
+    {{ form.hidden_tag() }}
+
+    {{ render_field(form.username, class='form-control', placeholder='Username') }}
+
+    {{ render_field(form.password, class='form-control', placeholder='Password') }}
+
+    {{ render_field(form.confirm_password, class='form-control', placeholder='Confirm Password') }}
+
+    {{ render_field(form.submit, class='btn btn-lg btn-primary btn-block')}}
+    {% if not success %}
+        <span style="color:red">{{ message }}</span><br>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

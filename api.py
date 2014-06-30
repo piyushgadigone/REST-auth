@@ -7,6 +7,7 @@ from passlib.apps import custom_app_context as pwd_context
 from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
 from login import LoginForm
+from register import RegisterForm
 
 # initialization
 app = Flask(__name__)
@@ -18,7 +19,7 @@ app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
 
-
+# Database models
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -46,6 +47,12 @@ class User(db.Model):
             return None    # invalid token
         user = User.query.get(data['id'])
         return user
+
+class Registration(db.Model):
+    __tablename__ = 'registrations'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    registration_id = db.Column(db.String(128))
 
 
 @auth.verify_password
@@ -109,6 +116,29 @@ def login():
 
     elif request.method == 'GET':
         return render_template('login.html', form=form, success=True)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    if request.method == 'POST':
+        username = form.username.data
+        password = form.password.data
+        user = User.query.filter_by(username=username).first()
+        if user:
+            return render_template('register.html', form=form, success=False, message="User already exists")
+        elif password != form.confirm_password.data:
+            return render_template('register.html', form=form, success=False, message="Two passwords dont match")
+        elif (len(username) < 1 or len(password) < 1):
+            return render_template('register.html', form=form, success=False, message="Enter valid username and password")
+        else:
+            user = User(username=username)
+            user.hash_password(password)
+            db.session.add(user)
+            db.session.commit()
+            return "User '" +  username + "'' registered. Register with '" + username + "'' on your device."
+
+    elif request.method == 'GET':
+        return render_template('register.html', form=form, success=True, message='')
 
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
