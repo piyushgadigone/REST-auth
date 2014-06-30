@@ -66,7 +66,6 @@ class IP(db.Model):
     token = db.Column(db.String(64))
     browser_ip = db.Column(db.String(64))
     device_ip = db.Column(db.String(64))
-    registration_id = db.Column(db.String(128))
 
 
 @auth.verify_password
@@ -132,11 +131,17 @@ def login():
                 token = uuid.uuid4().hex
                 data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data}}
                 r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
-                return r.text
+                
+		ip = IP(browser_ip=request.remote_addr)
+		ip.username = form.username.data
+		ip.token = token
+		db.session.add(ip)
+		db.session.commit()
+		return r.text		
         else:
             return render_template('login.html', form=form, success=False)
 
-    elif request.method == 'GET':
+    elif request.method == 'GET':  
         return render_template('login.html', form=form, success=True)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -180,6 +185,21 @@ def registrationId():
         db.session.add(registration)
         db.session.commit()
         return jsonify({'result': 'Registration id successfully added'})
+
+@app.route('/ip', methods=['POST'])
+def ip():
+    username = request.json.get('username')
+    token = request.json.get('token')
+    ip = IP.query.filter_by(username=username).first()
+    if not ip:
+        return jsonify({'result':'User has not attempted to login. Possible attack to the system!'})
+    elif ip.token != token:
+        return jsonify({'result':'Incorrect token. Possible attack to the system!'})
+    else:
+        ip.device_ip = request.remote_addr
+        db.session.add(ip)
+        db.session.commit()
+	return jsonify({'result':'Device IP successfully reported'})
 
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
