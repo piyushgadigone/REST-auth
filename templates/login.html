@@ -16,7 +16,7 @@
     {{ render_field(form.password, class='form-control', placeholder='Password') }}
 
     {{ render_field(form.submit, class='btn btn-lg btn-primary btn-block')}}<br>
-    <a href="/register">Sign Up</a>
+    <a href="/register">Sign Up</a><br>
     {% if not success %}
         <span style="color:red">Invalid Username or Password.</span><br>
     {% endif %}
