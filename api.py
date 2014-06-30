@@ -145,10 +145,13 @@ def registrationId():
     username = request.json.get('username')
     registrationId = request.json.get('registrationId')
     user = User.query.filter_by(username=username).first()
+    reg = Registration.query.filter_by(username=username).first()
     if not user:
         return jsonify({'result': 'User does not exist'})
     elif (not registrationId or len(registrationId) < 1):
         return jsonify({'result': 'Invalid registration id'})
+    elif reg:
+        return jsonify({'result': 'User is already registered'})
     else:
         registration = Registration(registration_id=registrationId)
         registration.username = username
