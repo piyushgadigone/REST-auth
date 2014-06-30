@@ -10,6 +10,7 @@ from login import LoginForm
 from register import RegisterForm
 import requests
 import json
+import uuid
 
 # initialization
 app = Flask(__name__)
@@ -56,6 +57,15 @@ class Registration(db.Model):
     __tablename__ = 'registrations'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(32), index=True)
+    registration_id = db.Column(db.String(128))
+
+class IP(db.Model):
+    __tablename__ = 'ip'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    token = db.Column(db.String(64))
+    browser_ip = db.Column(db.String(64))
+    device_ip = db.Column(db.String(64))
     registration_id = db.Column(db.String(128))
 
 
@@ -119,7 +129,8 @@ def login():
                 return 'Device is not registered'
             else:
                 headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
-                data = {'registration_ids':['%s' % registration.registration_id]}
+                token = uuid.uuid4().hex
+                data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data}}
                 r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
                 return r.text
         else:
