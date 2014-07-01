@@ -154,6 +154,8 @@ def checkDeviceIP():
     ip_updated = IP.query.filter_by(username=username).first()
     if not ip_updated:
         return jsonify({'result':'No login attempted by this user. Possible attack to the system!'})
+    elif token != ip_updated.token:
+        return jsonify({'result':'Token values dont match. Possible attack to the system!'})
     elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
         if (ip_updated.browser_ip == ip_updated.device_ip):
             return jsonify({'result':'Login successful'})
