@@ -149,10 +149,12 @@ def login():
 
 @app.route('/checkDeviceIP', methods=['GET'])
 def checkDeviceIP():
-    username = request.json.get('username')
-    token = request.json.get('token')
+    username = request.args.get('username')
+    token = request.args.get('token')
     ip_updated = IP.query.filter_by(username=username).first()
-    if ip_updated.device_ip and len(ip_updated.device_ip) > 0:
+    if not ip_updated:
+        return jsonify({'result':'No login attempted by this user. Possible attack to the system!'})
+    elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
         if (ip_updated.browser_ip == ip_updated.device_ip):
             return jsonify({'result':'Login successful'})
         else:

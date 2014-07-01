@@ -2,17 +2,23 @@
 
 {% block stylesheet %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
-<script type="text/javascript">
-    function checkIfDeviceIPIsReported() {
-        alert('ok');
-    }
-    window.onload = checkIfDeviceIpIsReported;
-</script>
 {% endblock %}
 
-
 {% block content %}
+<script type="text/javascript">
+    setTimeout(function checkIfDeviceIPIsReported() {
+       alert('Test');
+       $.get(
+        url="checkDeviceIP", 
+        data={ 'username':'username', 'token':'token'},
+        success=function(data){
+            alert('done')
+        })
+     }, 5000);
+    window.onload = checkIfDeviceIPIsReported();
+</script>
 <div>
     <img src="{{ url_for('static', filename = 'css/images/ajax-loader.gif') }}"/> 
 </div>
+<span id=result>?</span>
 {% endblock %}
