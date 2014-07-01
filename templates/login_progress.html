@@ -7,16 +7,12 @@
 {% block content %}
 <script type="text/javascript">
     setTimeout(function checkIfDeviceIPIsReported() {
-       alert('Test');
-       //$.get(
-       // url="checkDeviceIP", 
-       // data={ 'username':'username', 'token':'token'},
-       // success=function(data){
-       //     alert('done')
-       // })
+       username = document.getElementById('username').value
+       token = document.getElementById('token').value
+       alert(username + ' ' + token);
+ 
        var xmlhttp;
-       xmlhttp = new XMLHttpRequest();
-       
+       xmlhttp = new XMLHttpRequest(); 
        xmlhttp.onreadystatechange=function(){
          if (xmlhttp.readyState==4 && xmlhttp.status==200)
          {
@@ -24,7 +20,7 @@
          }
        }
        //var data = 'checkDeviceIP?username'+{{ username }} +'&token=' + {{ token }};
-       xmlhttp.open("GET",'checkDeviceIP?username=piyush&token=token',true);
+       xmlhttp.open("GET",'checkDeviceIP?username='+username+'&token='+token,true);
        xmlhttp.send();
      }, 5000);
     window.onload = checkIfDeviceIPIsReported();
@@ -32,5 +28,10 @@
 <div>
     <img src="{{ url_for('static', filename = 'css/images/ajax-loader.gif') }}"/> 
 </div>
-<div id="myDiv"><h2>Let AJAX change this text</h2></div>
+<h1>Access Hidden value in JavaScript</h1>
+<form>
+	<input type=hidden id="username" value="{{username}}"/>
+       <input type=hidden id="token" value="{{token}}"/>
+</form>
+<div id="myDiv"><h2>Let AJAX change this text {{username}} {{token}} </h2></div>
 {% endblock %}
