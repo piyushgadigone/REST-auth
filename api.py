@@ -11,6 +11,7 @@ from register import RegisterForm
 import requests
 import json
 import uuid
+import time
 
 # initialization
 app = Flask(__name__)
@@ -131,18 +132,33 @@ def login():
                 token = uuid.uuid4().hex
                 data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data}}
                 r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
-                
+
+		# Add the browser IP address to the database
 		ip = IP(browser_ip=request.remote_addr)
 		ip.username = form.username.data
 		ip.token = token
 		db.session.add(ip)
 		db.session.commit()
-		return r.text		
+                return render_template('login_progress.html', username=form.username.data, token=token)
+		
         else:
             return render_template('login.html', form=form, success=False)
 
     elif request.method == 'GET':  
         return render_template('login.html', form=form, success=True)
+
+@app.route('/checkDeviceIP', methods=['GET'])
+def checkDeviceIP():
+    username = request.json.get('username')
+    token = request.json.get('token')
+    ip_updated = IP.query.filter_by(username=username).first()
+    if ip_updated.device_ip and len(ip_updated.device_ip) > 0:
+        if (ip_updated.browser_ip == ip_updated.device_ip):
+            return jsonify({'result':'Login successful'})
+        else:
+            return jsonify({'result':'Device and browser ip doesnt match'})
+
+    return jsonify({'result':'Didnt hear back from the device. Login using 2-step auth.'})
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
