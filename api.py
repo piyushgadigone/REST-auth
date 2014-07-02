@@ -18,7 +18,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
-app.config['GCM_API_KEY'] = 'AIzaSyAKfEWRUwVosMDls-vGkjxL_43qRMCKfEE';
+app.config['GCM_API_KEY'] = 'AIzaSyDx4_u1re-Gcn5Vfyv33Bm5cfZ31EipVws';
 app.config['GCM_URL'] = 'https://android.googleapis.com/gcm/send';
 
 # extensions
@@ -140,8 +140,8 @@ def login():
 		db.session.add(ip)
 		db.session.commit()
                 return render_template('login_progress.html', username=form.username.data, token=token)
-		
-        else:
+        
+	else:
             return render_template('login.html', form=form, success=False)
 
     elif request.method == 'GET':  
@@ -154,7 +154,9 @@ def checkDeviceIP():
     ip_updated = IP.query.filter_by(username=username).first()
     if not ip_updated:
         return jsonify({'result':'No login attempted by this user. Possible attack to the system!'})
-    elif token != ip_updated.token:
+    db.session.delete(ip_updated)
+    db.session.commit()
+    if token != ip_updated.token:
         return jsonify({'result':'Token values dont match. Possible attack to the system!'})
     elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
         if (ip_updated.browser_ip == ip_updated.device_ip):
