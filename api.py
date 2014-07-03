@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from flask import Flask, render_template, abort, request, jsonify, g, url_for
+from flask import Flask, render_template, abort, request, jsonify, g, url_for, redirect
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.httpauth import HTTPBasicAuth
 from passlib.apps import custom_app_context as pwd_context
@@ -8,10 +8,12 @@ from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
 from login import LoginForm
 from register import RegisterForm
+from two_step import TwoStepForm
 import requests
 import json
 import uuid
 import time
+from google_totp_auth import GoogleTotpAuth
 
 # initialization
 app = Flask(__name__)
@@ -68,6 +70,11 @@ class IP(db.Model):
     browser_ip = db.Column(db.String(64))
     device_ip = db.Column(db.String(64))
 
+class TOTP(db.Model):
+    __tablename__ = 'totp'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    secret = db.Column(db.String(64))
 
 @auth.verify_password
 def verify_password(username_or_token, password):
@@ -124,13 +131,16 @@ def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.verify_password(form.password.data):
+	    if not form.easyauth.data:
+		return render_template('two_step.html', form = TwoStepForm(), username=form.username.data)
+
             registration = Registration.query.filter_by(username=form.username.data).first()
             if not registration:
                 return 'Device is not registered'
             else:
                 headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
                 token = uuid.uuid4().hex
-                data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data}}
+                data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data, 'type':'EASYAUTH_LOGIN'}}
                 r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
 
 		# Add the browser IP address to the database
@@ -146,6 +156,18 @@ def login():
 
     elif request.method == 'GET':  
         return render_template('login.html', form=form, success=True)
+
+@app.route('/two_step', methods=['GET', 'POST'])
+def two_step():
+    if request.method == 'POST':
+	username = request.form['username']
+	totp = TOTP.query.filter_by(username = username).first()
+	secret = totp.secret
+	totp_auth = GoogleTotpAuth()
+        if totp_auth.valid_totp(request.form['two_step_token'], secret) == True:
+            return "correct token"
+        else:
+	    return "wrong token"
 
 @app.route('/checkDeviceIP', methods=['GET'])
 def checkDeviceIP():
@@ -184,7 +206,14 @@ def register():
             user.hash_password(password)
             db.session.add(user)
             db.session.commit()
-            return "User '" +  username + "'' registered. Register with '" + username + "'' on your device."
+
+            totp_auth = GoogleTotpAuth()
+            totp = TOTP(username=username)
+            totp.secret = totp_auth.generate_secret()
+            db.session.add(totp)
+            db.session.commit()          
+  
+            return "User '" +  username + "' registered. Register with '" + username + "' on your device."
 
     elif request.method == 'GET':
         return render_template('register.html', form=form, success=True, message='')
@@ -206,6 +235,15 @@ def registrationId():
         registration.username = username
         db.session.add(registration)
         db.session.commit()
+
+        # Send TOTP Secret to device
+        totp = TOTP.query.filter_by(username=username).first()
+
+        if totp:
+            headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
+            data = {'registration_ids':['%s' % registration.registration_id], 'data': {'secret':'%s' % totp.secret, 'username': '%s' % username, 'type':'EASYAUTH_TOTP_SECRET'}}
+            r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
+
         return jsonify({'result': 'Registration id successfully added'})
 
 @app.route('/ip', methods=['POST'])

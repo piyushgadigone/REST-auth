@@ -14,7 +14,8 @@
     {{ render_field(form.username, class='form-control', placeholder='Username') }}
 
     {{ render_field(form.password, class='form-control', placeholder='Password') }}
-
+    
+    {{ render_field(form.easyauth) }} EasyAuth <br>
     {{ render_field(form.submit, class='btn btn-lg btn-primary btn-block')}}<br>
     <a href="/register">Sign Up</a><br>
     {% if not success %}
