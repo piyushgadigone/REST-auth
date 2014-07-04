@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from flask import Flask, render_template, abort, request, jsonify, g, url_for, redirect
+from flask import Flask, session, escape, render_template, abort, request, jsonify, g, url_for, redirect
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.httpauth import HTTPBasicAuth
 from passlib.apps import custom_app_context as pwd_context
@@ -10,6 +10,7 @@ from login import LoginForm
 from register import RegisterForm
 from two_step import TwoStepForm
 import requests
+import random
 import json
 import uuid
 import time
@@ -33,12 +34,19 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(32), index=True)
     password_hash = db.Column(db.String(64))
+    salt = db.Column(db.String(32))
 
     def hash_password(self, password):
-        self.password_hash = pwd_context.encrypt(password)
+        ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	chars=[]
+	for i in range(16):
+	    chars.append(random.choice(ALPHABET))
+	salt = "".join(chars)
+	self.salt = salt
+        self.password_hash = pwd_context.encrypt(salt + password)
 
     def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)
+        return pwd_context.verify(self.salt + password, self.password_hash)
 
     def generate_auth_token(self, expiration=600):
         s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
@@ -127,12 +135,15 @@ def get_resource():
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    if 'username' in session:
+	return 'Logged in as'# %s' % escape(session['username'])
+
     form = LoginForm()
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.verify_password(form.password.data):
 	    if not form.easyauth.data:
-		return render_template('two_step.html', form = TwoStepForm(), username=form.username.data)
+		return render_template('two_step.html', form = TwoStepForm(), success = True, username=form.username.data)
 
             registration = Registration.query.filter_by(username=form.username.data).first()
             if not registration:
@@ -165,7 +176,8 @@ def two_step():
 	secret = totp.secret
 	totp_auth = GoogleTotpAuth()
         if totp_auth.valid_totp(request.form['two_step_token'], secret) == True:
-            return "correct token"
+            session['username'] = username
+	    return "correct token"
         else:
 	    return "wrong token"
 
@@ -182,9 +194,10 @@ def checkDeviceIP():
         return jsonify({'result':'Token values dont match. Possible attack to the system!'})
     elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
         if (ip_updated.browser_ip == ip_updated.device_ip):
-            return jsonify({'result':'Login successful'})
+            session['username'] = username
+	    return jsonify({'result':'Login successful'})
         else:
-            return jsonify({'result':'Device and browser ip doesnt match'})
+            return render_template('two_step.html', form = TwoStepForm(), success=False, username=username)
 
     return jsonify({'result':'Didnt hear back from the device. Login using 2-step auth.'})
 

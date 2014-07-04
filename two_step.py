@@ -5,4 +5,4 @@ from wtforms.validators import Required
 class TwoStepForm(Form):
   username = TextField("Username", [Required("Please enter your username.")])
   two_step_token = TextField("", [Required("Please enter your OTP.")])
-  submit = SubmitField("Register")
+  submit = SubmitField("Login")
