@@ -4,7 +4,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 {% endblock %}
 
-
 {% block content %}
 <div class="login_div">
   <h2 class ="form-signin">Easy Auth</h2>
@@ -14,7 +13,7 @@
     {{ render_field(form.username, class='form-control', placeholder='Username') }}
 
     {{ render_field(form.password, class='form-control', placeholder='Password') }}
-
+    {{ render_field(form.easyauth) }}EasyAuth <br>
     {{ render_field(form.submit, class='btn btn-lg btn-primary btn-block')}}<br>
     <a href="/register">Sign Up</a><br>
     {% if not success %}

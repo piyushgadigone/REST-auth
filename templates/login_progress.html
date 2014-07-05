@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<script type="text/javascript">
+    setTimeout(function checkIfDeviceIPIsReported() {
+       username = document.getElementById('username').value
+       token = document.getElementById('token').value
+       //alert(username + ' ' + token);
+ 
+       var xmlhttp;
+       xmlhttp = new XMLHttpRequest(); 
+       xmlhttp.onreadystatechange=function(){
+         if (xmlhttp.readyState==4 && xmlhttp.status==200)
+         {
+            document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
+	    document.getElementById("loadingImage").style.display = "none";
+         }
+       }
+       //var data = 'checkDeviceIP?username'+{{ username }} +'&token=' + {{ token }};
+       xmlhttp.open("GET",'checkDeviceIP?username='+username+'&token='+token,true);
+       xmlhttp.send();
+     }, 5000);
+    window.onload = checkIfDeviceIPIsReported();
+</script>
+<div>
+    <img id="loadingImage" src="{{ url_for('static', filename = 'css/images/ajax-loader.gif') }}"/> 
+</div>
+<form>
+       <input type=hidden id="username" value="{{username}}"/>
+       <input type=hidden id="token" value="{{token}}"/>
+</form>
+<div id="myDiv"></div>
+{% endblock %}

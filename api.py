@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from flask import Flask, render_template, abort, request, jsonify, g, url_for
+from flask import Flask, session, escape, render_template, abort, request, jsonify, g, url_for, redirect
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.httpauth import HTTPBasicAuth
 from passlib.apps import custom_app_context as pwd_context
@@ -8,15 +8,20 @@ from itsdangerous import (TimedJSONWebSignatureSerializer
                           as Serializer, BadSignature, SignatureExpired)
 from login import LoginForm
 from register import RegisterForm
+from two_step import TwoStepForm
 import requests
+import random
 import json
+import uuid
+import time
+from google_totp_auth import GoogleTotpAuth
 
 # initialization
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'the quick brown fox jumps over the lazy dog'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
-app.config['GCM_API_KEY'] = 'AIzaSyAKfEWRUwVosMDls-vGkjxL_43qRMCKfEE';
+app.config['GCM_API_KEY'] = 'AIzaSyDx4_u1re-Gcn5Vfyv33Bm5cfZ31EipVws';
 app.config['GCM_URL'] = 'https://android.googleapis.com/gcm/send';
 
 # extensions
@@ -29,12 +34,19 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(32), index=True)
     password_hash = db.Column(db.String(64))
+    salt = db.Column(db.String(32))
 
     def hash_password(self, password):
-        self.password_hash = pwd_context.encrypt(password)
+        ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	chars=[]
+	for i in range(16):
+	    chars.append(random.choice(ALPHABET))
+	salt = "".join(chars)
+	self.salt = salt
+        self.password_hash = pwd_context.encrypt(salt + password)
 
     def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)
+        return pwd_context.verify(self.salt + password, self.password_hash)
 
     def generate_auth_token(self, expiration=600):
         s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
@@ -58,6 +70,19 @@ class Registration(db.Model):
     username = db.Column(db.String(32), index=True)
     registration_id = db.Column(db.String(128))
 
+class IP(db.Model):
+    __tablename__ = 'ip'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    token = db.Column(db.String(64))
+    browser_ip = db.Column(db.String(64))
+    device_ip = db.Column(db.String(64))
+
+class TOTP(db.Model):
+    __tablename__ = 'totp'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    secret = db.Column(db.String(64))
 
 @auth.verify_password
 def verify_password(username_or_token, password):
@@ -110,23 +135,71 @@ def get_resource():
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    if 'username' in session:
+	return 'Logged in as'# %s' % escape(session['username'])
+
     form = LoginForm()
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.verify_password(form.password.data):
+	    if not form.easyauth.data:
+		return render_template('two_step.html', form = TwoStepForm(), success = True, username=form.username.data)
+
             registration = Registration.query.filter_by(username=form.username.data).first()
             if not registration:
                 return 'Device is not registered'
             else:
                 headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
-                data = {'registration_ids':['%s' % registration.registration_id]}
+                token = uuid.uuid4().hex
+                data = {'registration_ids':['%s' % registration.registration_id], 'data': {'token':'%s' % token, 'username': '%s' % form.username.data, 'type':'EASYAUTH_LOGIN'}}
                 r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
-                return r.text
-        else:
+
+		# Add the browser IP address to the database
+		ip = IP(browser_ip=request.remote_addr)
+		ip.username = form.username.data
+		ip.token = token
+		db.session.add(ip)
+		db.session.commit()
+                return render_template('login_progress.html', username=form.username.data, token=token)
+        
+	else:
             return render_template('login.html', form=form, success=False)
 
-    elif request.method == 'GET':
+    elif request.method == 'GET':  
         return render_template('login.html', form=form, success=True)
+
+@app.route('/two_step', methods=['GET', 'POST'])
+def two_step():
+    if request.method == 'POST':
+	username = request.form['username']
+	totp = TOTP.query.filter_by(username = username).first()
+	secret = totp.secret
+	totp_auth = GoogleTotpAuth()
+        if totp_auth.valid_totp(request.form['two_step_token'], secret) == True:
+            session['username'] = username
+	    return "correct token"
+        else:
+	    return "wrong token"
+
+@app.route('/checkDeviceIP', methods=['GET'])
+def checkDeviceIP():
+    username = request.args.get('username')
+    token = request.args.get('token')
+    ip_updated = IP.query.filter_by(username=username).first()
+    if not ip_updated:
+        return jsonify({'result':'No login attempted by this user. Possible attack to the system!'})
+    db.session.delete(ip_updated)
+    db.session.commit()
+    if token != ip_updated.token:
+        return jsonify({'result':'Token values dont match. Possible attack to the system!'})
+    elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
+        if (ip_updated.browser_ip == ip_updated.device_ip):
+            session['username'] = username
+	    return jsonify({'result':'Login successful'})
+        else:
+            return render_template('two_step.html', form = TwoStepForm(), success=False, username=username)
+
+    return jsonify({'result':'Didnt hear back from the device. Login using 2-step auth.'})
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -146,7 +219,14 @@ def register():
             user.hash_password(password)
             db.session.add(user)
             db.session.commit()
-            return "User '" +  username + "'' registered. Register with '" + username + "'' on your device."
+
+            totp_auth = GoogleTotpAuth()
+            totp = TOTP(username=username)
+            totp.secret = totp_auth.generate_secret()
+            db.session.add(totp)
+            db.session.commit()          
+  
+            return "User '" +  username + "' registered. Register with '" + username + "' on your device."
 
     elif request.method == 'GET':
         return render_template('register.html', form=form, success=True, message='')
@@ -168,7 +248,31 @@ def registrationId():
         registration.username = username
         db.session.add(registration)
         db.session.commit()
+
+        # Send TOTP Secret to device
+        totp = TOTP.query.filter_by(username=username).first()
+
+        if totp:
+            headers = {'Content-Type': 'application/json', 'Authorization':'key=%s' % app.config['GCM_API_KEY']}
+            data = {'registration_ids':['%s' % registration.registration_id], 'data': {'secret':'%s' % totp.secret, 'username': '%s' % username, 'type':'EASYAUTH_TOTP_SECRET'}}
+            r = requests.post(app.config['GCM_URL'], data=json.dumps(data), headers=headers)
+
         return jsonify({'result': 'Registration id successfully added'})
+
+@app.route('/ip', methods=['POST'])
+def ip():
+    username = request.json.get('username')
+    token = request.json.get('token')
+    ip = IP.query.filter_by(username=username).first()
+    if not ip:
+        return jsonify({'result':'User has not attempted to login. Possible attack to the system!'})
+    elif ip.token != token:
+        return jsonify({'result':'Incorrect token. Possible attack to the system!'})
+    else:
+        ip.device_ip = request.remote_addr
+        db.session.add(ip)
+        db.session.commit()
+	return jsonify({'result':'Device IP successfully reported'})
 
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
