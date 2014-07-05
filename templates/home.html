@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block stylesheet %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login_div">
+  <h2 class ="form-signin">Welcome</h2>
+  <span>You are logged in as {{username}}</span><br/>
+  <a href="/logout">logout</a><br>
+</div>
+{% endblock %}

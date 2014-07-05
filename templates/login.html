@@ -5,9 +5,10 @@
 {% endblock %}
 
 {% block content %}
-<div class="login_div">
+
+<div id="content" class="login_div">
   <h2 class ="form-signin">Easy Auth</h2>
-  <form action="{{ url_for('login') }}" method=post class="form-signin">
+  <form id="loginForm" action="{{ url_for('login') }}" method=post class="form-signin">
     {{ form.hidden_tag() }}
 
     {{ render_field(form.username, class='form-control', placeholder='Username') }}
@@ -17,7 +18,7 @@
     {{ render_field(form.submit, class='btn btn-lg btn-primary btn-block')}}<br>
     <a href="/register">Sign Up</a><br>
     {% if not success %}
-        <span style="color:red">Invalid Username or Password.</span><br>
+        <span style="color:red">{{errorMsg}}</span><br>
     {% endif %}
   </form>
 

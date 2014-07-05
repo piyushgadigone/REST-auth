@@ -133,11 +133,16 @@ def get_auth_token():
 def get_resource():
     return jsonify({'data': 'Hello, %s!' % g.user.username})
 
+@app.route('/logout')
+def logout():
+    # remove the username from the session if it's there
+    session.pop('username', None)
+    return render_template('login.html', form= LoginForm(), success=False, errorMsg='Logout Successful')
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if 'username' in session:
-	return 'Logged in as'# %s' % escape(session['username'])
-
+	return render_template('home.html', username=escape(session['username']))
     form = LoginForm()
     if request.method == 'POST':
         user = User.query.filter_by(username=form.username.data).first()
@@ -163,13 +168,15 @@ def login():
                 return render_template('login_progress.html', username=form.username.data, token=token)
         
 	else:
-            return render_template('login.html', form=form, success=False)
+            return render_template('login.html', form=form, success=False, errorMsg='Invalid username or password.')
 
     elif request.method == 'GET':  
         return render_template('login.html', form=form, success=True)
 
 @app.route('/two_step', methods=['GET', 'POST'])
 def two_step():
+    if 'username' in session:
+        return render_template('home.html', username=escape(session['username']))
     if request.method == 'POST':
 	username = request.form['username']
 	totp = TOTP.query.filter_by(username = username).first()
@@ -177,9 +184,9 @@ def two_step():
 	totp_auth = GoogleTotpAuth()
         if totp_auth.valid_totp(request.form['two_step_token'], secret) == True:
             session['username'] = username
-	    return "correct token"
+	    return render_template('home.html', username=username)
         else:
-	    return "wrong token"
+	    return render_template('login.html', form = LoginForm(), success=False, msg='Authentication Failed')
 
 @app.route('/checkDeviceIP', methods=['GET'])
 def checkDeviceIP():
@@ -195,11 +202,10 @@ def checkDeviceIP():
     elif ip_updated.device_ip and len(ip_updated.device_ip) > 0:
         if (ip_updated.browser_ip == ip_updated.device_ip):
             session['username'] = username
-	    return jsonify({'result':'Login successful'})
+	    return render_template('home.html', username=username)
         else:
             return render_template('two_step.html', form = TwoStepForm(), success=False, username=username)
-
-    return jsonify({'result':'Didnt hear back from the device. Login using 2-step auth.'})
+    return render_template('two_step.html', form = TwoStepForm(), success=False, username=username)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

@@ -5,12 +5,67 @@
 {% endblock %}
 
 {% block content %}
+<style>
+#content {
+    padding:25px;
+}
+
+#fade {
+    display: none;
+    position:absolute;
+    top: 0%;
+    left: 0%;
+    width: 100%;
+    height: 100%;
+    background-color: #ababab;
+    z-index: 1001;
+    -moz-opacity: 0.8;
+    opacity: .70;
+    filter: alpha(opacity=80);
+}
+
+#modal {
+    display: none;
+    position: absolute;
+    top: 45%;
+    left: 45%;
+    width: 64px;
+    height: 64px;
+    padding:15px 11px 0px;
+    border: 3px solid #ababab;
+    box-shadow:1px 1px 10px #ababab;
+    border-radius:20px;
+    background-color: white;
+    z-index: 1002;
+    text-align:center;
+    overflow: auto;
+}
+
+#results {
+    font-size:1.25em;
+    color:red
+}
+</style>
+
+
 <script type="text/javascript">
-    setTimeout(function checkIfDeviceIPIsReported() {
+function openModal() {
+        document.getElementById('modal').style.display = 'block';
+        document.getElementById('fade').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('fade').style.display = 'none';
+}
+        
+setTimeout(function(){
+   openModal();
+}, 500);
+
+     setTimeout(function checkIfDeviceIPIsReported() {
        username = document.getElementById('username').value
        token = document.getElementById('token').value
-       //alert(username + ' ' + token);
- 
        var xmlhttp;
        xmlhttp = new XMLHttpRequest(); 
        xmlhttp.onreadystatechange=function(){
@@ -23,11 +78,15 @@
        //var data = 'checkDeviceIP?username'+{{ username }} +'&token=' + {{ token }};
        xmlhttp.open("GET",'checkDeviceIP?username='+username+'&token='+token,true);
        xmlhttp.send();
+       closeModal();
      }, 5000);
-    window.onload = checkIfDeviceIPIsReported();
 </script>
-<div>
-    <img id="loadingImage" src="{{ url_for('static', filename = 'css/images/ajax-loader.gif') }}"/> 
+
+<div id="content" class="login_div" onload="openModal()">
+    <div id="fade"></div>
+    <div id="modal">
+       <img id="loader" src="{{ url_for('static', filename='images/loading.gif') }}" />
+    </div>
 </div>
 <form>
        <input type=hidden id="username" value="{{username}}"/>
